@@ -1,0 +1,294 @@
+---
+title: "PROJECT 3"
+author: "Vinh Ton"
+date: "2023-03-17"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+set.seed(42)
+library(iNZightTools)
+library(DescTools)
+heart <- read.csv("~/Desktop/STA106/FINAL/heart_disease_health_indicators_BRFSS2015.csv")
+heart$Sex=as.factor(heart$Sex)
+heart$HighBP=as.factor(heart$HighBP)
+heart$HighChol=as.factor(heart$HighChol)
+
+Build_contigencytable=function(data,group,variable,bins=10,proportion=FALSE){
+  table1=NULL
+  # create break points for the following histograms
+  # from minimum to maximum with equal distance
+  ax=seq(min(data[,variable]),max(data[,variable]),length.out=bins+1)
+  # Save histogram data
+  list_group=unique(data[,group])
+  for(i in list_group){
+    hg1=hist(data[data[,group]==i,variable], breaks = ax,plot = FALSE)
+    table1=rbind(table1,hg1$counts)
+  }
+  rownames(table1)=list_group
+  colnames(table1)=1:ncol(table1)
+  # calculate row sum and combine it  with the current table
+  table1=cbind(table1, 'Total'=apply(table1,1,sum))
+  # calculate column sum and combine it  with the current table
+  table1=rbind(table1, 'Total'=apply(table1,2,sum))
+
+  if(proportion){
+    # convert to proportions
+    n_col=ncol(table1)
+    for(i in 1:nrow(table1)){
+      table1[i,]=table1[i,]/table1[i,n_col]
+    }
+  }
+  table1
+}
+```
+```{r}
+entropyApproach = function(sample1){
+  B=nrow(sample1)
+  entropies=numeric(B)
+  for(j in 1:B){
+    entropies[j]= Entropy(sample1[j,],base=exp(1))
+  }
+    labels = row.names((sample1))
+    entropiesTable = cbind(labels, entropies)
+    return(entropiesTable)
+}
+
+
+hcApproach = function(propTable){
+  varClusters = hclust(dist(propTable), method='average')
+  plot(varClusters, main="Dendogram of Proportions")
+}
+
+```
+
+```{r}
+
+entropyHistSim = function(table1){
+for (i in 1:nrow(table1)){
+  sample1=rmultinom(1000,100,table1[i,])
+  B=ncol(sample1)
+  entropies=numeric(B)
+  for(j in 1:B){
+    entropies[j]=Entropy(sample1[,j],base=exp(1))
+  }
+  hist(entropies,main='Histograms of Entropy',xlab=paste('Entropy for', row.names(table1)[i]))
+}
+}
+##^repeat that for all 2-way interaction terms
+
+```
+```{r}
+hcApproachSim = function(numsTable, propTable){
+  table1 = numsTable
+  table2 = propTable
+  simTable = NULL
+    for (i in 1:(nrow(table1)-1)){
+    sample1=rmultinom(n=1, size=table1[i, ncol(table1)],prob=table2[i,1:ncol(table2)-1])
+    simTable = rbind(simTable, t(sample1))
+    }
+  rownames(simTable) = rownames((table2[1:nrow(table2)-1,]))
+  simTable=cbind(simTable, 'Total'=apply(simTable,1,sum))
+  simTable=rbind(simTable, 'Total'=apply(simTable,2,sum))
+  n_col=ncol(simTable)
+    for(i in 1:nrow(simTable)){
+      simTable[i,]=simTable[i,]/simTable[i,n_col]
+    }
+  varClusters = hclust(dist(simTable), method='average')
+  plot(varClusters, main="Dendogram of Proportions")
+}
+```
+
+
+
+### ABSTRACT
+We have been given the BRFSS 2015 data set and told to explore the data through the use of entropy and HC-clustering with respect to three binary variables of our choice, subdivided in to five datasets with respect to general health. We have found that in terms of predictabilty, the interaction of sex with blood pressure and cholesterol status seemed to be most impactful, with blood pressure playing a secondary role. Additionally, through repeated simulated samples using the multinomial distribution, we found that the use of entropy and HC-trees were very reliable, consistently generating sample data that matched the actual entropy and HC-trees generated from our dataset.
+
+### INTRODUCTION
+We have been provided with the BRFSS 2015 data set and introduced to the methods of hierarchical-clustering and Entropy as alternatives to the method of ANOVA in the task of determining whether or not multiple samples have the same mean or distribution. 
+
+Now, we are going to put apply these methods to our BRFSS dataset by dividing our dataset into five samples with regard to the GenHlth category, and investigating the 3-way interaction effects of three variables: sex, high cholesterol status, and high blood pressure status. Using these methods of hierarchical-clustering and entropy, we will determine what association the interactions of sex, high cholesterol, and high blood pressure, has on BMI distribution, and how it compares to the overall BMI distribution.
+
+However, we will also test the reliability of entropy and HC-trees through the use of simulated data based on the multinomial distribution for each sub-dataset with respect to 3-way interactions.
+
+### METHODOLOGY
+
+Each of our sub-datasets with regard to GenHlth will be further subdivided with respect to high blood pressure, high cholesterol, and sex. These datasets will be represented through contingency tables and contingecy tables of proportions. Then, through the use of hierarchical clustering we will discover those with similar distributions, and with entropy we will see which combination of variables will have the greatest predictor of BMI.
+
+To test reliability, a contingency table of proportions will be constructed for each 3-way interaction sub-dataset. Then, we will simulate data for each contingency table from a multinomial distribution in which each row-vector of proportions will serve as the probability for the multinomial distribution. 
+
+For the entropy approach, each row will construct its own multinomial distribution with n=1000. Then we use the entropy approach for each row to create a histogram of the Shannon entropies and compare to the actual data.
+
+For the hierarchical clustering approach, we will create 5 such contingency tables as detailed above, and construct HC-trees on each table to investigate how reliable HC is.
+
+```{r}
+combined = combineCatVars(heart, vars=c("Sex", "HighBP", "HighChol"), sep=".")
+combined = combineCatVars(combined, vars=c("HighBP", "HighChol"), sep=".")
+combined = combineCatVars(combined, vars=c("Sex", "HighChol"), sep=".")
+combined = combineCatVars(combined, vars=c("Sex", "HighBP"), sep=".")
+```
+
+### KEY RESULTS
+
+##### SUB-DATASET 1
+
+```{r}
+sub=combined[combined$GenHlth==1,]
+subTotTable = Build_contigencytable(sub, "Sex.HighBP.HighChol", "BMI", 10, proportion=F)
+subPropTable = Build_contigencytable(sub, "Sex.HighBP.HighChol", "BMI", 10, proportion=T)
+entropyApproach(subPropTable)
+```
+
+We can see from the entropy table that the best predictors when looking at interaction terms seem to be the combinations of sex being male, low blood pressure, high cholesterol, sex being male with low blood pressure and low cholesterol, and sex being male with high blood pressure and high cholesterol.
+
+The worst predictors seem to be sex being female with high blood pressure and low cholesterol, and sex being female with low blood pressure and low cholesterol, and sex being female with high blood pressure and high cholesterol, since all three have entropies greater than the col-sum entropy.
+
+```{r}
+hcApproach(subPropTable)
+```
+
+The hierarchical-clustering approach shows that the most closely related structures to the overall BMI distribution are sex being female with low blood pressure and high cholesterol, sex being female with high blood pressure and low cholesterol, and sex being female with high blood pressure and high cholesterol.
+
+Interestingly, it seems that the status of being female sex, low blood pressure, and low cholesterol is the farthest distributed from the overall total, indicating that the interaction of these three seems to be very poor in both distribution similarity and in predictability.
+
+
+##### RELIABILITY
+
+```{r fig.height=7, fig.width=14}
+par(mfrow=c(3, 3))
+entropyHistSim(subPropTable)
+par(mfrow=c(3, 2))
+for (i in 1:5){
+  hcApproachSim(subTotTable, subPropTable)
+}
+```
+
+Each of these sample entropy histograms appear to be approximately normal distributed. Interestingly, they also seem to be approximately normal with a mean centered on the entropy calculated from our actual data. Additionally, although the exact locations of each branch of the HC-trees vary, the relative similarities between community structures seem to remain consistent both within our simulated trees and with respect to our HC-tree from our actual data.
+
+##### SUB-DATASET 2
+
+```{r}
+sub=combined[combined$GenHlth==2,]
+subTotTable = Build_contigencytable(sub, "Sex.HighBP.HighChol", "BMI", 10, proportion=F)
+subPropTable = Build_contigencytable(sub, "Sex.HighBP.HighChol", "BMI", 10, proportion=T)
+entropyApproach(subPropTable)
+```
+
+In our second sub-dataset, the best predictors seem to be: male status, low blood pressure, high cholesterol; male status, low blood pressure, low chol; and male status, high blood pressure, high cholesterol. Interestingly, there are only four indicators that seem to be good predictors, with the last being: female status, low blood pressure, and high cholesterol. All the others have entropy levels greater than the col-sum.
+
+The worst predictors seem to be: female status, high blood pressure, low cholesterol; female status, high blood pressure, high chol; and male status, high blood pressure, and high cholesterol.
+
+```{r}
+hcApproach(subPropTable)
+```
+
+In regards to our distribution shapes, our overall distribution seems to be most similar to male status, low blood pressure, low cholesterol, & male status, low blood pressure, high cholesterol. These two sets of interactions were also the greatest predictors as seen from our entropy calculations above.
+
+##### RELIABILITY
+```{r fig.height=7, fig.width=14}
+par(mfrow=c(3, 3))
+entropyHistSim(subPropTable)
+par(mfrow=c(3, 2))
+for (i in 1:5){
+  hcApproachSim(subTotTable, subPropTable)
+}
+```
+
+Once again, each histogram of simulated entropy seems to be normally distributed centered around the actual calculated entropy, and the HC-trees seem to be very similarly-distributed with respect to each other and the HC-tree calculated from the actual data.
+
+##### SUB-DATASET 3
+```{r}
+sub=combined[combined$GenHlth==3,]
+subTotTable = Build_contigencytable(sub, "Sex.HighBP.HighChol", "BMI", 10, proportion=F)
+subPropTable = Build_contigencytable(sub, "Sex.HighBP.HighChol", "BMI", 10, proportion=T)
+
+entropyApproach(subPropTable)
+```
+
+In this third sub-dataset, it is noticeable that the total entropy is significantly higher than the previous two. In fact, the entropy levels for each sample are significantly higher in general compared to the previous two sub-datasets. Even the best predictors of: male status, low blood pressure, low chol; male status, low blood pressure, high chol; and male status, high blood pressure, high chol; have entropy at a minimum value of about 1.16, which is significantly higher than other sub-datasets. However, these sets of interactions match up with we had previously seen in the other two sub-datasets.
+
+```{r}
+hcApproach(subPropTable)
+```
+
+In regards to the distribution of BMI shapes, it appears that the overall BMI distribution is most similar to the sub-distributions of: female, high blood pressure, low cholesterol; and female, high blood pressure, high cholesterol, which is similar to what we'd seen in sub-dataset 1.
+
+##### RELIABILITY
+
+```{r fig.height=7, fig.width=14}
+par(mfrow=c(3, 3))
+entropyHistSim(subPropTable)
+par(mfrow=c(3, 2))
+for (i in 1:5){
+  hcApproachSim(subTotTable, subPropTable)
+}
+```
+
+Again, the HC-trees and the histograms of entropy align with the calculated HC-trees and entropy from our dataset.
+
+##### SUB-DATASET 4
+```{r}
+sub=combined[combined$GenHlth==4,]
+subTotTable = Build_contigencytable(sub, "Sex.HighBP.HighChol", "BMI", 10, proportion=F)
+subPropTable = Build_contigencytable(sub, "Sex.HighBP.HighChol", "BMI", 10, proportion=T)
+
+entropyApproach(subPropTable)
+```
+
+This fourth dataset has a very high entropy relative to the previous datasets we've analyzed, with the col-sum entropy being 1.33. The best interaction terms seem to be: male, low blood pressure, low cholesterol; male, low blood pressure, low cholesterol; and male, high blood pressure, high cholesterol.
+
+```{r}
+hcApproach(subPropTable)
+```
+
+In regard to distribution shapes, it appears that sex seems to be the strongest term tying together BMI distributions, followed by high blood pressure, and then high cholesterol.
+
+##### RELIABILITY
+```{r fig.height=7, fig.width=14}
+par(mfrow=c(3, 3))
+entropyHistSim(subPropTable)
+par(mfrow=c(3, 2))
+for (i in 1:5){
+  hcApproachSim(subTotTable, subPropTable)
+}
+```
+
+Our reliability checks show that our simulated entropy and HC-trees are very similar to the actual.
+
+
+##### SUB-DATASET 5
+```{r}
+sub=combined[combined$GenHlth==5,]
+subTotTable = Build_contigencytable(sub, "Sex.HighBP.HighChol", "BMI", 10, proportion=F)
+subPropTable = Build_contigencytable(sub, "Sex.HighBP.HighChol", "BMI", 10, proportion=T)
+entropyApproach(subPropTable)
+```
+
+The greatest predictors here, e.g. those samples with lowest entropy, include: male, low blood pressure, low cholesterol; and male, low blood pressure, high cholesterol.
+
+```{r}
+hcApproach(subPropTable)
+```
+
+Interestingly, for this sub-dataset, it appears that blood pressure status seems to tie together distributions more tightly than sex, as opposed to our previous sub-datasets, although sex is still tightly intertwined.
+
+##### RELIABILITY
+
+```{r fig.height=7, fig.width=14}
+par(mfrow=c(3, 3))
+entropyHistSim(subPropTable)
+par(mfrow=c(3, 2))
+for (i in 1:5){
+  hcApproachSim(subTotTable, subPropTable)
+}
+```
+
+Even with slightly different HC-trees than our previous sub-datasets, our simulated HC-trees retain similar shapes to the actual.
+
+### CONCLUSION
+For each of the five sub-datasets with regard to general health, the most impactful indicator of predictive ability of the interaction between the variables seemed to be male/female status, with blood pressure as a close second. Cholesterol status seemed to be the least impactful when looking at the interaction terms. Sex was also generally the main factor in which community clusters were linked, again with blood pressure as a close second.
+
+Additionally, both the methods of entropy and HC-clustering were very reliable. In each of the five sub-datasets, the histograms of entropy were approximately normal distributed around the respective calculated entropy of the dataset, and the simulated HC-trees had shapes that closely resembled the actual HC-tree constructed.
